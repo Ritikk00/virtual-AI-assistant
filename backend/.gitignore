@@ -1,0 +1,26 @@
+# 1. Heavy Dependencies (GitHub par upload nahi karna hai)
+node_modules/
+
+# 2. Sensitive API Keys & Secrets (.env files)
+.env
+.env.local
+.env.development
+.env.production
+
+# 3. Public Uploads Folder (Local temp files)
+# Ye .gitkeep ko chhodkar baki saari uploaded temp images ignore kar dega
+public/*
+!public/.gitkeep
+
+# 4. Logs and Debugging Files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# 5. OS and Editor Specific Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
