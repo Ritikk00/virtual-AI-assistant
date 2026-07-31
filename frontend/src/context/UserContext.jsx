@@ -6,7 +6,7 @@ import axios from "axios"
 export const userdatacontext = createContext()
 
 function UserContext({ children }) {
-  const serverurl = "http://localhost:8000"
+  const serverurl = "https://virtual-ai-assistant-backend-cwt3.onrender.com"
 
   const [userdata, setuserdata] = useState(null)
   const [frontendimage, setFrontendImage] = useState(null);
