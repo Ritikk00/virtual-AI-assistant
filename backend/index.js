@@ -11,7 +11,7 @@ import geminiresponse from './gemini.js';
 
 const app = express();
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: "https://virtual-ai-assistant-hzhf.onrender.com",
   credentials: true
 }));
 const port = process.env.PORT || 8000;
