@@ -107,6 +107,31 @@ function Home() {
     }
   };
 
+  const getSpeechRecognitionConstructor = () => {
+    if (typeof window === 'undefined') return null;
+    return window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || window.msSpeechRecognition || null;
+  };
+
+  const getSpeechVoices = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return [];
+    return window.speechSynthesis.getVoices() || [];
+  };
+
+  const getPreferredVoice = (isHindi) => {
+    const voices = getSpeechVoices();
+    const preferredLangs = isHindi ? ['hi-IN', 'hi'] : ['en-US', 'en-IN', 'en'];
+
+    let voice = voices.find((voiceItem) => preferredLangs.some((lang) => voiceItem.lang === lang));
+    if (!voice && isHindi) {
+      voice = voices.find((voiceItem) => voiceItem.lang.startsWith('hi'));
+    }
+    if (!voice && !isHindi) {
+      voice = voices.find((voiceItem) => voiceItem.lang.startsWith('en'));
+    }
+
+    return voice || voices[0] || null;
+  };
+
   const getRefusalMessage = (transcript) => {
     const normalized = String(transcript || '').replace(/\s+/g, ' ').trim();
     const isHindi = /[\u0900-\u097F]/.test(normalized) || /\b(कृपया|पहले|नाम|पुकारें|तब|सकूँ|सकूं|मुझे|मेरे|आप)\b/i.test(normalized);
@@ -216,6 +241,8 @@ function Home() {
       startGreeting();
     };
 
+    let removeVoicesChangedListener = null;
+
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
@@ -223,9 +250,11 @@ function Home() {
       } else {
         const onVoicesChanged = () => {
           startGreeting();
-          window.speechSynthesis.onvoiceschanged = null;
         };
-        window.speechSynthesis.onvoiceschanged = onVoicesChanged;
+        window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+        removeVoicesChangedListener = () => {
+          window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        };
       }
     }
 
@@ -235,8 +264,8 @@ function Home() {
     return () => {
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('keydown', handleInteraction);
-      if (typeof window !== 'undefined' && window.speechSynthesis?.onvoiceschanged) {
-        window.speechSynthesis.onvoiceschanged = null;
+      if (removeVoicesChangedListener) {
+        removeVoicesChangedListener();
       }
     };
   }, [voiceSupported, greetingText]);
@@ -254,14 +283,43 @@ function Home() {
   }, [voiceSupported, isListening, isThinking]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleFirstInteraction = async () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.getVoices();
+        if (typeof window.speechSynthesis.resume === 'function') {
+          try {
+            window.speechSynthesis.resume();
+          } catch {
+            // ignore resume errors
+          }
+        }
+      }
+
+      await ensureMicAccess();
+    };
+
+    window.addEventListener('click', handleFirstInteraction, { once: true, passive: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true });
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognitionConstructor();
 
     if (!SpeechRecognition) {
       setVoiceSupported(false);
+      setStatusText('Voice input is not supported on this browser. Please open in Chrome on Android or Desktop.');
       return;
     }
 
@@ -350,8 +408,7 @@ function Home() {
     utterance.pitch = 1.0;
     utterance.volume = 1;
 
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find((voice) => voice.lang === (isHindi ? 'hi-IN' : 'en-US') || voice.lang === (isHindi ? 'hi-IN' : 'en-IN'));
+    const preferredVoice = getPreferredVoice(isHindi);
     if (preferredVoice) {
       utterance.voice = preferredVoice;
     }
@@ -385,11 +442,6 @@ function Home() {
     };
 
     window.speechSynthesis.speak(utterance);
-  };
-
-  const getPreferredVoice = (isHindi) => {
-    const voices = window.speechSynthesis.getVoices();
-    return voices.find((voice) => voice.lang === (isHindi ? 'hi-IN' : 'en-US') || voice.lang === (isHindi ? 'hi-IN' : 'en-IN'));
   };
 
   const speakGreeting = (text) => {
